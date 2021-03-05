@@ -1,0 +1,19 @@
+{
+  "name": "@serverless-dns/dns-parser",
+  "version": "1.0.0",
+  "description": "rethink-dns dns packet parser",
+  "main": "dns.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "MPL-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/serverless-dns/dns-parser.git"
+  },
+  "bugs": {
+    "url": "https://github.com/serverless-dns/dns-parser/issues"
+  },
+  "homepage": "https://github.com/serverless-dns/dns-parser#readme"
+}
