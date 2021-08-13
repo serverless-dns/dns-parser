@@ -1,1 +1,1 @@
-# dns-parser
+This is a forked repository for [dns parsing](https://github.com/mafintosh/dns-packet), this package helps in parsing dns request or response packets.
