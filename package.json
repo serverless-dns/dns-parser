@@ -1,13 +1,11 @@
 {
   "name": "@serverless-dns/dns-parser",
-  "version": "1.0.1",
+  "version": "2.0.0",
   "description": "rethink-dns dns packet parser",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "dependencies": {
-    "ip": "^1.1.5"
   },
   "author": "",
   "license": "MPL-2.0",
