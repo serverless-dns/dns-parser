@@ -37,6 +37,7 @@ import * as opcodes from "./opcodes.js";
 import * as classes from "./classes.js";
 import * as optioncodes from "./optioncodes.js";
 import { ip as ip } from "./lib/ip.js";
+import { Buffer } from "buffer";
 
 const QUERY_FLAG = 0;
 const RESPONSE_FLAG = 1 << 15;
