@@ -36,6 +36,7 @@ import * as rcodes from "./rcodes.js";
 import * as opcodes from "./opcodes.js";
 import * as classes from "./classes.js";
 import * as optioncodes from "./optioncodes.js";
+import * as serviceParamKey from "./svcparamkey.js";
 import { ip as ip } from "./lib/ip.js";
 
 const QUERY_FLAG = 0;
@@ -1335,6 +1336,330 @@ rds.encodingLength = function (digest) {
   return 6 + Buffer.byteLength(digest.digest);
 };
 
+//https svcb code change http-64 and svcb-65 record type encode and decode
+const rhttpsvcb = {};
+export { rhttpsvcb as httpsvcb };
+
+rhttpsvcb.decode = function (buf, offset) {
+  if (!offset) offset = 0;
+  let oldOffset = offset;
+
+  const rLen = buf.readUInt16BE(offset) + 2;
+  console.log("Rdata length : " + rLen);
+  offset += 2;
+  let data = {};
+  data.svcPriority = buf.readUInt16BE(offset);
+  offset += 2;
+  data.targetName = name.decode(buf, offset);
+  offset += name.decode.bytes;
+  data.svcParams = {};
+  let svcKeyDecode;
+  let svcParamKey;
+  let svcKeyStr;
+  while (offset != (oldOffset + rLen)) {
+    svcParamKey = buf.readUInt16BE(offset);
+    svcKeyStr = serviceParamKey.toString(svcParamKey);
+    svcKeyDecode = svcbKeyObj(svcKeyStr);
+    offset += 2;
+    data.svcParams[svcKeyStr] = svcKeyDecode.decode(buf, offset);
+    offset += svcKeyDecode.decode.bytes;
+  }
+  rhttpsvcb.decode.bytes = offset - oldOffset;
+  return data;
+};
+
+rhttpsvcb.decode.bytes = 0;
+
+rhttpsvcb.encode = function (data, buf, offset) {
+  if (!buf) buf = Buffer.allocUnsafe(rhttpsvcb.encodingLength(data));
+  if (!offset) offset = 0;
+  const oldOffset = offset;
+  buf.writeUInt16BE(rhttpsvcb.encodingLength(data) - 2, offset);
+  offset += 2;
+  buf.writeUInt16BE(data.svcPriority, offset);
+  offset += 2;
+  name.encode(data.targetName, buf, offset);
+  offset += name.encode.bytes;
+  let svcbObj
+  for (let key of Object.keys(data.svcParams)) {
+    buf.writeUInt16BE(serviceParamKey.toKey(key), offset);
+    offset += 2;    
+    svcbObj = svcbKeyObj(key);        
+    svcbObj.encode(data.svcParams[key], buf, offset);
+    offset += svcbObj.encode.bytes;
+  }
+  rhttpsvcb.encode.bytes = offset - oldOffset;
+  return buf;
+};
+rhttpsvcb.encode.bytes = 0;
+
+rhttpsvcb.encodingLength = function (data) {
+  var encLen = 4 + name.encodingLength(data.targetName);
+  let svcbObj;
+  for (let key of Object.keys(data.svcParams)) {
+    svcbObj = svcbKeyObj(key);
+    encLen += (2 + svcbObj.encodingLength(data.svcParams[key]));
+  }
+  console.log(encLen);
+  return encLen;
+};
+
+const svcAlpn = {};
+export { svcAlpn as svcAlpn };
+svcAlpn.decode = function (buf, offset) {
+  if (!offset) offset = 0;
+  const oldOffset = offset;
+
+  var data = [];
+  var length = buf.readUInt16BE(offset);
+  offset += 2;
+  var valueLength = 0;
+  while (length != 0) {
+    valueLength = buf.readUInt8(offset);
+    offset += 1;
+    length -= 1;
+    data.push(buf.toString("utf-8", offset, offset + valueLength));
+    offset += valueLength;
+    length -= valueLength;
+  }
+  svcAlpn.decode.bytes = offset - oldOffset;
+  return data;
+};
+
+svcAlpn.decode.bytes = 0;
+
+svcAlpn.encode = function (data, buf, offset) {
+  if (!buf) buf = Buffer.allocUnsafe(svcAlpn.encodingLength(data));
+  if (!offset) offset = 0;
+  const oldOffset = offset;
+
+  buf.writeUInt16BE(svcAlpn.encodingLength(data) - 2, offset);
+  offset += 2;
+  for (let value of data) {
+    buf.writeUInt8(Buffer.byteLength(value), offset);
+    offset += 1;
+    offset += buf.write(value, offset);
+  }
+  svcAlpn.encode.bytes = offset - oldOffset;
+  return buf;
+};
+svcAlpn.encode.bytes = 0;
+
+svcAlpn.encodingLength = function (data) {
+  var encLen = 2;
+  for (let value of data) {
+    encLen += (1 + Buffer.byteLength(value));
+  }
+  return encLen;
+};
+
+const svcIpv6 = {};
+export { svcIpv6 as svcIpv6 };
+svcIpv6.decode = function (buf, offset) {
+  if (!offset) offset = 0;
+  const oldOffset = offset;
+  var data = [];
+  var length = buf.readUInt16BE(offset);
+  offset += 2;
+  while (length != 0) {
+    data.push(ip.toString(buf, offset, 16));
+    offset += 16;
+    length -= 16;
+  }
+  svcIpv6.decode.bytes = offset - oldOffset;
+  return data;
+};
+
+svcIpv6.decode.bytes = 0;
+
+svcIpv6.encode = function (data, buf, offset) {
+  if (!buf) buf = Buffer.allocUnsafe(svcIpv6.encodingLength(data));
+  if (!offset) offset = 0;
+  const oldOffset = offset;
+
+  buf.writeUInt16BE(data.length * 16, offset);
+  offset += 2;
+  for (let value of data) {
+    ip.toBuffer(value, buf, offset);
+    offset += 16;
+  }
+  svcIpv6.encode.bytes = offset - oldOffset;
+  return buf;
+};
+svcIpv6.encode.bytes = 0;
+
+svcIpv6.encodingLength = function (data) {
+  return (2 + (data.length * 16));
+};
+
+const svcIpv4 = {};
+export { svcIpv4 as svcIpv4 };
+svcIpv4.decode = function (buf, offset) {
+  if (!offset) offset = 0;
+  const oldOffset = offset;
+  var data = [];
+  var length = buf.readUInt16BE(offset);
+  offset += 2;
+  while (length != 0) {
+    data.push(ip.toString(buf, offset, 4));
+    offset += 4;
+    length -= 4;
+  }
+  svcIpv4.decode.bytes = offset - oldOffset;
+  return data;
+};
+
+svcIpv4.decode.bytes = 0;
+
+svcIpv4.encode = function (data, buf, offset) {
+  if (!buf) buf = Buffer.allocUnsafe(svcIpv4.encodingLength(data));
+  if (!offset) offset = 0;
+  const oldOffset = offset;
+
+  buf.writeUInt16BE(data.length * 4, offset);
+  offset += 2;
+  for (let value of data) {
+    ip.toBuffer(value, buf, offset);
+    offset += 4;
+  }
+  svcIpv4.encode.bytes = offset - oldOffset;
+  return buf;
+};
+svcIpv4.encode.bytes = 0;
+
+svcIpv4.encodingLength = function (data) {
+  return (2 + (data.length * 4));
+};
+
+const svcMandatory = {};
+export { svcMandatory as svcMandatory };
+svcMandatory.decode = function (buf, offset) {
+  if (!offset) offset = 0;
+  const oldOffset = offset;
+  var data = [];
+  var length = buf.readUInt16BE(offset);
+  offset += 2;
+  while (length != 0) {
+    data.push(serviceParamKey.toString(buf.readUInt16BE(offset)));
+    offset += 2;
+    length -= 2;
+  }
+  svcMandatory.decode.bytes = offset - oldOffset;
+  return data;
+};
+
+svcMandatory.decode.bytes = 0;
+
+svcMandatory.encode = function (data, buf, offset) {
+  if (!buf) buf = Buffer.allocUnsafe(svcMandatory.encodingLength(data));
+  if (!offset) offset = 0;
+  const oldOffset = offset;
+  buf.writeUInt16BE(data.length * 2, offset);
+  offset += 2;
+  for (let value of data) {
+    buf.writeUInt16BE(serviceParamKey.toKey(value), offset);
+    offset += 2;
+  }
+  svcMandatory.encode.bytes = offset - oldOffset;
+  return buf;
+};
+svcMandatory.encode.bytes = 0;
+
+svcMandatory.encodingLength = function (data) {
+  return (2 + (data.length * 2));
+};
+
+const svcPort = {};
+export { svcPort as svcPort };
+svcPort.decode = function (buf, offset) {
+  if (!offset) offset = 0;
+  const oldOffset = offset;
+  var data = [];
+  var length = buf.readUInt16BE(offset);
+  offset += 2;
+  while (length != 0) {
+    data.push(buf.readUInt16BE(offset));
+    offset += 2;
+    length -= 2;
+  }
+  svcPort.decode.bytes = offset - oldOffset;
+  return data;
+};
+
+svcPort.decode.bytes = 0;
+
+svcPort.encode = function (data, buf, offset) {
+  if (!buf) buf = Buffer.allocUnsafe(svcPort.encodingLength(data));
+  if (!offset) offset = 0;
+  const oldOffset = offset;
+  buf.writeUInt16BE(data.length * 2, offset);
+  offset += 2;
+  for (let value of data) {
+    buf.writeUInt16BE(value, offset);
+    offset += 2;
+  }
+  svcPort.encode.bytes = offset - oldOffset;
+  return buf;
+};
+svcPort.encode.bytes = 0;
+
+svcPort.encodingLength = function (data) {
+  return (2 + data.length * 2);
+};
+
+const svcOther = {};
+export { svcOther as svcOther };
+svcOther.decode = function (buf, offset) {
+  if (!offset) offset = 0;
+  const oldOffset = offset;
+  var data;
+  var length = buf.readUInt16BE(offset);
+  offset += 2;
+  data = buf.slice(offset, offset + length);
+  offset += length;
+  svcOther.decode.bytes = offset - oldOffset;
+  return data;
+};
+
+svcOther.decode.bytes = 0;
+
+svcOther.encode = function (data, buf, offset) {
+  if (!buf) buf = Buffer.allocUnsafe(svcOther.encodingLength(data));
+  if (!offset) offset = 0;
+  const oldOffset = offset;
+  buf.writeUInt16BE(data.byteLength, offset);
+  offset += 2;
+  offset += data.copy(buf, offset);
+  svcOther.encode.bytes = offset - oldOffset;
+  return buf;
+};
+svcOther.encode.bytes = 0;
+
+svcOther.encodingLength = function (data) {
+  return 2 + data.byteLength;
+};
+
+const svcbKeyObj = function (type) {
+  switch (type.toLowerCase()) {
+    case "mandatory":
+      return svcMandatory;
+    case "alpn":
+      return svcAlpn;
+    case "no-default-alpn":
+      return svcAlpn;
+    case "port":
+      return svcPort;
+    case "ipv4hint":
+      return svcIpv4;
+    case "ech":
+      return svcOther;
+    case "ipv6hint":
+      return svcIpv6;
+    default:
+      return svcOther;
+  }
+};
+export { svcbKeyObj as svcbKeyObj };
 const renc = function (type) {
   switch (type.toUpperCase()) {
     case "A":
@@ -1377,6 +1702,10 @@ const renc = function (type) {
       return rnsec3;
     case "DS":
       return rds;
+    case "HTTPS": //https svcb code change
+      return rhttpsvcb;
+    case "SVCB": // https svcb code change
+      return rhttpsvcb;
   }
   return runknown;
 };
