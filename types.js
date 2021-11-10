@@ -122,6 +122,10 @@ export function toString(type) {
       return "OPT";
     case 255:
       return "ANY";
+    case 64: // https svcb code change
+      return "SVCB";
+    case 65: // https svcb code change
+      return "HTTPS";
   }
   return "UNKNOWN_" + type;
 }
@@ -218,6 +222,10 @@ export function toType(name) {
       return 255;
     case "*":
       return 255;
+    case "SVCB": // https svcb code change
+      return 64;
+    case "HTTPS": // https svcb code change
+      return 65;
   }
   if (name.toUpperCase().startsWith("UNKNOWN_")) return parseInt(name.slice(8));
   return 0;
