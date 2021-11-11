@@ -1375,20 +1375,23 @@ rhttpsvcb.encode = function (data, buf, offset) {
   if (!buf) buf = Buffer.allocUnsafe(rhttpsvcb.encodingLength(data));
   if (!offset) offset = 0;
   const oldOffset = offset;
-  buf.writeUInt16BE(rhttpsvcb.encodingLength(data) - 2, offset);
+  //buf.writeUInt16BE(rhttpsvcb.encodingLength(data) - 2, offset);
   offset += 2;
   buf.writeUInt16BE(data.svcPriority, offset);
   offset += 2;
   name.encode(data.targetName, buf, offset);
   offset += name.encode.bytes;
-  let svcbObj
+  let svcbObj;
   for (let key of Object.keys(data.svcParams)) {
     buf.writeUInt16BE(serviceParamKey.toKey(key), offset);
-    offset += 2;    
-    svcbObj = svcbKeyObj(key);        
+    offset += 2;
+    svcbObj = svcbKeyObj(key);
     svcbObj.encode(data.svcParams[key], buf, offset);
     offset += svcbObj.encode.bytes;
   }
+  //writing httpsvcb recode length after writing body part changed for performance
+  //to avoid calculating encodingLength part
+  buf.writeUInt16BE(offset - oldOffset - 2, oldOffset); 
   rhttpsvcb.encode.bytes = offset - oldOffset;
   return buf;
 };
@@ -1434,13 +1437,16 @@ svcAlpn.encode = function (data, buf, offset) {
   if (!offset) offset = 0;
   const oldOffset = offset;
 
-  buf.writeUInt16BE(svcAlpn.encodingLength(data) - 2, offset);
+  //buf.writeUInt16BE(svcAlpn.encodingLength(data) - 2, offset);
   offset += 2;
   for (let value of data) {
     buf.writeUInt8(Buffer.byteLength(value), offset);
     offset += 1;
     offset += buf.write(value, offset);
   }
+  //writing alpn value length after writing body part changed for performance
+  //to avoid calculating encodingLength part
+  buf.writeUInt16BE(offset - oldOffset - 2, oldOffset);
   svcAlpn.encode.bytes = offset - oldOffset;
   return buf;
 };
@@ -1608,6 +1614,41 @@ svcPort.encodingLength = function (data) {
   return (2 + data.length * 2);
 };
 
+const svcEch = {};
+export { svcEch as svcEch };
+svcEch.decode = function (buf, offset) {
+  if (!offset) offset = 0;
+  const oldOffset = offset;
+  var data;
+  var length = buf.readUInt16BE(offset);
+  offset += 2;
+  data = buf.toString("base64", offset, offset + length);
+  offset += length;
+  svcEch.decode.bytes = offset - oldOffset;
+  return data;
+};
+
+svcEch.decode.bytes = 0;
+
+svcEch.encode = function (data, buf, offset) {
+  if (!buf) buf = Buffer.allocUnsafe(svcEch.encodingLength(data));
+  if (!offset) offset = 0;
+  const oldOffset = offset;
+  //buf.writeUInt16BE(svcEch.encodingLength(data) - 2, offset);
+  offset += 2;
+  offset += buf.write(data, offset, "base64");
+  //writing ech value length after writing body part changed for performance
+  //to avoid calculating encodingLength part
+  buf.writeUInt16BE(offset - oldOffset - 2, oldOffset);
+  svcEch.encode.bytes = offset - oldOffset;
+  return buf;
+};
+svcEch.encode.bytes = 0;
+
+svcEch.encodingLength = function (data) {
+  return 2 + (Buffer.from(data, "base64")).byteLength;
+};
+
 const svcOther = {};
 export { svcOther as svcOther };
 svcOther.decode = function (buf, offset) {
@@ -1653,7 +1694,7 @@ const svcbKeyObj = function (type) {
     case "ipv4hint":
       return svcIpv4;
     case "ech":
-      return svcOther;
+      return svcEch;
     case "ipv6hint":
       return svcIpv6;
     default:
