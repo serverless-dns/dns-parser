@@ -1346,7 +1346,6 @@ rhttpsvcb.decode = function (buf, offset) {
   let oldOffset = offset;
 
   const rLen = buf.readUInt16BE(offset) + 2;
-  console.log("Rdata length : " + rLen);
   offset += 2;
   let data = {};
   data.svcPriority = buf.readUInt16BE(offset);
@@ -1404,7 +1403,6 @@ rhttpsvcb.encodingLength = function (data) {
     svcbObj = svcbKeyObj(key);
     encLen += (2 + svcbObj.encodingLength(data.svcParams[key]));
   }
-  console.log(encLen);
   return encLen;
 };
 
