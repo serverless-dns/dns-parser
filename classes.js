@@ -29,36 +29,26 @@
  */
 
 //forked with minor changes from https://github.com/mafintosh/dns-packet
-"use strict";
+const toStringLookup = {
+  1: "IN",
+  2: "CS",
+  3: "CH",
+  4: "HS",
+  255: "ANY",
+};
+
+const toClassLookup = {
+  IN: 1,
+  CS: 2,
+  CH: 3,
+  HS: 4,
+  ANY: 255,
+};
 
 export function toString (klass) {
-  switch (klass) {
-    case 1:
-      return "IN";
-    case 2:
-      return "CS";
-    case 3:
-      return "CH";
-    case 4:
-      return "HS";
-    case 255:
-      return "ANY";
-  }
-  return "UNKNOWN_" + klass;
+  return toStringLookup[klass] || `UNKNOWN_${klass}`;
 }
 
 export function toClass (name) {
-  switch (name.toUpperCase()) {
-    case "IN":
-      return 1;
-    case "CS":
-      return 2;
-    case "CH":
-      return 3;
-    case "HS":
-      return 4;
-    case "ANY":
-      return 255;
-  }
-  return 0;
+  return toClassLookup[name.toUpperCase()] || 0;
 }
